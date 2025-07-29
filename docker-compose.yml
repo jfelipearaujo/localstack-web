@@ -1,14 +1,14 @@
-version: "3"
+version: '3'
 
 services:
   localstack:
     image: localstack/localstack:3.1
     ports:
-      - "127.0.0.1:4510-4559:4510-4559"  # external service port range
-      - "127.0.0.1:4566:4566"            # LocalStack Edge Proxy
+      - '127.0.0.1:4510-4559:4510-4559' # external service port range
+      - '127.0.0.1:4566:4566' # LocalStack Edge Proxy
     environment:
       - DEBUG=${DEBUG:-0}
-      - SERVICES=sns,sqs,s3,ses,lambda,dynamodb,kinesis,kms
+      - SERVICES=sns,sqs,s3,ses,lambda,dynamodb,kinesis,kms,secretsmanager
       - DISABLE_CORS_CHECKS=1
       - DISABLE_CORS_HANDLERS=1
       - SKIP_CORS_PREFLIGHT=1
@@ -18,8 +18,8 @@ services:
       - EXTRA_CORS_ALLOWED_HEADERS=*
       - EXTRA_CORS_ALLOWED_METHODS=GET,POST,PUT,DELETE,HEAD,OPTIONS
     volumes:
-      - "${TMPDIR:-/tmp}/localstack:/var/lib/localstack"
-      - "/var/run/docker.sock:/var/run/docker.sock"
+      - '${TMPDIR:-/tmp}/localstack:/var/lib/localstack'
+      - '/var/run/docker.sock:/var/run/docker.sock'
       - ./development-environment/localstack:/etc/localstack/init/ready.d
     networks:
       - localstack-web-net
@@ -35,7 +35,7 @@ services:
         - VITE_AWS_SECRET_ACCESS_KEY=test
     container_name: localstack-web
     ports:
-      - "3000:80"
+      - '3000:80'
     depends_on:
       - localstack
     networks:

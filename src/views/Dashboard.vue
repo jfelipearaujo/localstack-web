@@ -16,13 +16,13 @@
           :variant="service.status === 'active' ? 'elevated' : 'outlined'"
           class="pa-4"
           height="150"
-          @click="service.status === 'active' ? navigateToService(service.route): null"
+          @click="service.status === 'active' ? navigateToService(service.route) : null"
           style="cursor: pointer"
         >
           <div class="d-flex align-center mb-3">
-            <v-icon 
-              :color="service.status === 'active' ? 'white' : 'grey'" 
-              size="x-large" 
+            <v-icon
+              :color="service.status === 'active' ? 'white' : 'grey'"
+              size="x-large"
               class="mr-3"
             >
               {{ service.icon }}
@@ -31,7 +31,7 @@
               <h3 :class="service.status === 'active' ? 'text-white' : 'text-grey'">
                 {{ service.name }}
               </h3>
-              <v-chip 
+              <v-chip
                 :color="service.status === 'active' ? 'success' : 'warning'"
                 size="small"
                 variant="elevated"
@@ -40,18 +40,16 @@
               </v-chip>
             </div>
           </div>
-          
+
           <div v-if="service.status === 'active'" class="text-white">
             <div v-if="service.stats">
               <div v-for="(value, key) in service.stats" :key="key" class="mb-1">
                 <strong>{{ key }}:</strong> {{ value }}
               </div>
             </div>
-            <div v-else class="text-caption">
-              Carregando estatísticas...
-            </div>
+            <div v-else class="text-caption">Carregando estatísticas...</div>
           </div>
-          
+
           <div v-else class="text-grey">
             <p class="text-caption mb-0">Serviço não disponível ou sem recursos</p>
           </div>
@@ -100,8 +98,8 @@
         <v-card-actions>
           <v-spacer></v-spacer>
           <v-btn text @click="confirmDialog.show = false">Cancelar</v-btn>
-          <v-btn 
-            :color="confirmDialog.color" 
+          <v-btn
+            :color="confirmDialog.color"
             @click="confirmDialog.confirm"
             :loading="confirmDialog.loading"
           >
@@ -123,8 +121,14 @@ import { storeToRefs } from 'pinia'
 import { ListTablesCommand, DeleteTableCommand } from '@aws-sdk/client-dynamodb'
 import { ListStreamsCommand } from '@aws-sdk/client-kinesis'
 import { ListKeysCommand } from '@aws-sdk/client-kms'
+import { ListSecretsCommand } from '@aws-sdk/client-secrets-manager'
 import { ListFunctionsCommand } from '@aws-sdk/client-lambda'
-import { ListBucketsCommand, ListObjectsV2Command, DeleteObjectsCommand, DeleteBucketCommand } from '@aws-sdk/client-s3'
+import {
+  ListBucketsCommand,
+  ListObjectsV2Command,
+  DeleteObjectsCommand,
+  DeleteBucketCommand,
+} from '@aws-sdk/client-s3'
 import { ListTopicsCommand } from '@aws-sdk/client-sns'
 import { ListQueuesCommand, DeleteQueueCommand } from '@aws-sdk/client-sqs'
 import { ListIdentitiesCommand } from '@aws-sdk/client-ses'
@@ -132,7 +136,7 @@ import { deleteSesMessage, getSesData } from '@/utils/api.js'
 
 const router = useRouter()
 const appStore = useAppStore()
-const { s3, ses, sns, sqs, dynamodb, lambda, kinesis, kms } = storeToRefs(appStore)
+const { s3, ses, sns, sqs, dynamodb, lambda, kinesis, kms, secretsManager } = storeToRefs(appStore)
 
 const services = ref([
   {
@@ -140,56 +144,63 @@ const services = ref([
     icon: 'mdi-table',
     route: '/dynamodb',
     status: 'inactive',
-    stats: null
+    stats: null,
   },
   {
     name: 'Kinesis',
     icon: 'mdi-view-stream',
     route: '/kinesis',
     status: 'inactive',
-    stats: null
+    stats: null,
   },
   {
     name: 'KMS',
     icon: 'mdi-key',
     route: '/kms',
     status: 'inactive',
-    stats: null
+    stats: null,
   },
   {
     name: 'Lambda',
     icon: 'mdi-function',
     route: '/lambda',
     status: 'inactive',
-    stats: null
+    stats: null,
   },
   {
     name: 'S3',
     icon: 'mdi-folder-multiple',
     route: '/s3',
     status: 'inactive',
-    stats: null
+    stats: null,
   },
   {
     name: 'SES',
     icon: 'mdi-email',
     route: '/ses',
     status: 'inactive',
-    stats: null
+    stats: null,
   },
   {
     name: 'SNS',
     icon: 'mdi-forum',
     route: '/sns',
     status: 'inactive',
-    stats: null
+    stats: null,
   },
   {
     name: 'SQS',
     icon: 'mdi-format-list-bulleted',
     route: '/sqs',
     status: 'inactive',
-    stats: null
+    stats: null,
+  },
+  {
+    name: 'Secrets Manager',
+    icon: 'mdi-lock',
+    route: '/secrets-manager',
+    status: 'inactive',
+    stats: null,
   },
 ])
 
@@ -199,36 +210,36 @@ const quickActions = ref([
     icon: 'mdi-delete-sweep',
     color: 'error',
     action: 'clearS3',
-    loading: false
+    loading: false,
   },
   {
     title: 'Limpar SQS',
     icon: 'mdi-broom',
     color: 'warning',
     action: 'clearSQS',
-    loading: false
+    loading: false,
   },
   {
     title: 'Limpar DynamoDB',
     icon: 'mdi-table-remove',
     color: 'orange',
     action: 'clearDynamoDB',
-    loading: false
+    loading: false,
   },
   {
     title: 'Limpar SES',
     icon: 'mdi-email-remove',
     color: 'error',
     action: 'clearSES',
-    loading: false
+    loading: false,
   },
   {
     title: 'Atualizar Status',
     icon: 'mdi-refresh',
     color: 'primary',
     action: 'refreshStatus',
-    loading: false
-  }
+    loading: false,
+  },
 ])
 
 const confirmDialog = ref({
@@ -237,10 +248,10 @@ const confirmDialog = ref({
   text: '',
   color: 'primary',
   confirm: null,
-  loading: false
+  loading: false,
 })
 
-const navigateToService = (route) => {
+const navigateToService = route => {
   router.push(route)
 }
 
@@ -251,7 +262,7 @@ const loadServiceStats = async () => {
       const dynamoTables = await dynamodb.value.send(new ListTablesCommand({}))
       services.value[0].status = 'active'
       services.value[0].stats = {
-        'Tabelas': dynamoTables.TableNames ? dynamoTables.TableNames.length : 0
+        Tabelas: dynamoTables.TableNames ? dynamoTables.TableNames.length : 0,
       }
     } catch (error) {
       console.error('DynamoDB error:', error)
@@ -263,7 +274,7 @@ const loadServiceStats = async () => {
       const kinesisStreams = await kinesis.value.send(new ListStreamsCommand({}))
       services.value[1].status = 'active'
       services.value[1].stats = {
-        'Streams': kinesisStreams.StreamNames ? kinesisStreams.StreamNames.length : 0
+        Streams: kinesisStreams.StreamNames ? kinesisStreams.StreamNames.length : 0,
       }
     } catch (error) {
       console.error('Kinesis error:', error)
@@ -275,7 +286,7 @@ const loadServiceStats = async () => {
       const kmsKeys = await kms.value.send(new ListKeysCommand({}))
       services.value[2].status = 'active'
       services.value[2].stats = {
-        'Chaves': kmsKeys.Keys ? kmsKeys.Keys.length : 0
+        Chaves: kmsKeys.Keys ? kmsKeys.Keys.length : 0,
       }
     } catch (error) {
       console.error('KMS error:', error)
@@ -287,7 +298,7 @@ const loadServiceStats = async () => {
       const lambdaFunctions = await lambda.value.send(new ListFunctionsCommand({}))
       services.value[3].status = 'active'
       services.value[3].stats = {
-        'Funções': lambdaFunctions.Functions ? lambdaFunctions.Functions.length : 0
+        Funções: lambdaFunctions.Functions ? lambdaFunctions.Functions.length : 0,
       }
     } catch (error) {
       console.error('Lambda error:', error)
@@ -299,7 +310,7 @@ const loadServiceStats = async () => {
       const s3Buckets = await s3.value.send(new ListBucketsCommand({}))
       services.value[4].status = 'active'
       services.value[4].stats = {
-        'Buckets': s3Buckets.Buckets ? s3Buckets.Buckets.length : 0
+        Buckets: s3Buckets.Buckets ? s3Buckets.Buckets.length : 0,
       }
     } catch (error) {
       console.error('S3 error:', error)
@@ -308,12 +319,14 @@ const loadServiceStats = async () => {
 
     // SES Stats
     try {
-      const sesIdentities = await ses.value.send(new ListIdentitiesCommand({ IdentityType: 'EmailAddress' }))
-      const sesData = await getSesData();
+      const sesIdentities = await ses.value.send(
+        new ListIdentitiesCommand({ IdentityType: 'EmailAddress' })
+      )
+      const sesData = await getSesData()
       services.value[5].status = 'active'
       services.value[5].stats = {
         'E-mails': sesData.messages ? sesData.messages.length : 0,
-        'Identidades': sesIdentities.Identities ? sesIdentities.Identities.length : 0
+        Identidades: sesIdentities.Identities ? sesIdentities.Identities.length : 0,
       }
     } catch (error) {
       console.error('SES error:', error)
@@ -325,7 +338,7 @@ const loadServiceStats = async () => {
       const snsTopics = await sns.value.send(new ListTopicsCommand({}))
       services.value[6].status = 'active'
       services.value[6].stats = {
-        'Tópicos': snsTopics.Topics ? snsTopics.Topics.length : 0
+        Tópicos: snsTopics.Topics ? snsTopics.Topics.length : 0,
       }
     } catch (error) {
       console.error('SNS error:', error)
@@ -337,20 +350,31 @@ const loadServiceStats = async () => {
       const sqsQueues = await sqs.value.send(new ListQueuesCommand({}))
       services.value[7].status = 'active'
       services.value[7].stats = {
-        'Filas': sqsQueues.QueueUrls ? sqsQueues.QueueUrls.length : 0
+        Filas: sqsQueues.QueueUrls ? sqsQueues.QueueUrls.length : 0,
       }
     } catch (error) {
       console.error('SQS error:', error)
       services.value[7].status = 'inactive'
     }
 
+    // Secrets Manager Stats
+    try {
+      const secrets = await secretsManager.value.send(new ListSecretsCommand({}))
+      services.value[8].status = 'active'
+      services.value[8].stats = {
+        Segredos: secrets.SecretList ? secrets.SecretList.length : 0,
+      }
+    } catch (error) {
+      console.error('Secrets Manager error:', error)
+      services.value[8].status = 'inactive'
+    }
   } catch (error) {
     console.error('Error loading service stats:', error)
     appStore.showSnackbar('Erro ao carregar estatísticas dos serviços', 'error')
   }
 }
 
-const executeQuickAction = (action) => {
+const executeQuickAction = action => {
   if (action.action === 'refreshStatus') {
     action.loading = true
     loadServiceStats().finally(() => {
@@ -362,7 +386,7 @@ const executeQuickAction = (action) => {
 
   // For destructive actions, show confirmation
   let title, text, color
-  
+
   switch (action.action) {
     case 'clearS3':
       title = 'Limpar todos os buckets S3'
@@ -392,11 +416,11 @@ const executeQuickAction = (action) => {
     text,
     color,
     confirm: () => performClearAction(action),
-    loading: false
+    loading: false,
   }
 }
 
-const performClearAction = async (action) => {
+const performClearAction = async action => {
   confirmDialog.value.loading = true
   action.loading = true
 
@@ -415,7 +439,7 @@ const performClearAction = async (action) => {
         await clearAllDynamoDBTables()
         break
     }
-    
+
     appStore.showSnackbar(`${action.title} executado com sucesso!`, 'success')
     await loadServiceStats()
   } catch (error) {
@@ -430,21 +454,21 @@ const performClearAction = async (action) => {
 
 const clearAllS3Buckets = async () => {
   const buckets = await s3.value.send(new ListBucketsCommand({}))
-  
+
   for (const bucket of buckets.Buckets) {
     // First, delete all objects in the bucket
     const objects = await s3.value.send(new ListObjectsV2Command({ Bucket: bucket.Name }))
-    
+
     if (objects.Contents && objects.Contents.length > 0) {
       const deleteParams = {
         Bucket: bucket.Name,
         Delete: {
-          Objects: objects.Contents.map(obj => ({ Key: obj.Key }))
-        }
+          Objects: objects.Contents.map(obj => ({ Key: obj.Key })),
+        },
       }
       await s3.value.send(new DeleteObjectsCommand(deleteParams))
     }
-    
+
     // Then delete the bucket
     await s3.value.send(new DeleteBucketCommand({ Bucket: bucket.Name }))
   }
@@ -452,7 +476,7 @@ const clearAllS3Buckets = async () => {
 
 const clearAllSQSQueues = async () => {
   const queues = await sqs.value.send(new ListQueuesCommand({}))
-  
+
   if (queues.QueueUrls) {
     for (const queueUrl of queues.QueueUrls) {
       await sqs.value.send(new DeleteQueueCommand({ QueueUrl: queueUrl }))
@@ -466,7 +490,7 @@ const clearAllSESData = async () => {
 
 const clearAllDynamoDBTables = async () => {
   const tables = await dynamodb.value.send(new ListTablesCommand({}))
-  
+
   for (const tableName of tables.TableNames) {
     await dynamodb.value.send(new DeleteTableCommand({ TableName: tableName }))
   }

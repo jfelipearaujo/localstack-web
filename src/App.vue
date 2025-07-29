@@ -1,17 +1,8 @@
 <template>
   <v-app>
-    <v-navigation-drawer
-      v-model="drawer"
-      app
-      clipped
-      :width="280"
-    >
+    <v-navigation-drawer v-model="drawer" app clipped :width="280">
       <v-list nav dense>
-        <v-list-item
-          :to="'/'"
-          router
-          exact
-        >
+        <v-list-item :to="'/'" router exact>
           <template v-slot:prepend>
             <v-icon>mdi-view-dashboard</v-icon>
           </template>
@@ -19,17 +10,10 @@
         </v-list-item>
       </v-list>
 
-
       <v-divider></v-divider>
-      
+
       <v-list nav dense>
-        <v-list-item
-          v-for="item in menuItems"
-          :key="item.title"
-          :to="item.to"
-          router
-          exact
-        >
+        <v-list-item v-for="item in menuItems" :key="item.title" :to="item.to" router exact>
           <template v-slot:prepend>
             <v-icon>{{ item.icon }}</v-icon>
           </template>
@@ -38,28 +22,18 @@
       </v-list>
     </v-navigation-drawer>
 
-    <v-app-bar
-      app
-      clipped-left
-      color="primary"
-      dark
-    >
-      <v-app-bar-nav-icon @click="drawer = !drawer"></v-app-bar-nav-icon>      
-      
+    <v-app-bar app clipped-left color="primary" dark>
+      <v-app-bar-nav-icon @click="drawer = !drawer"></v-app-bar-nav-icon>
+
       <v-toolbar-title class="text-h4">
         <div class="d-flex align-center">
-          <img 
-            :src="logoImage" 
-            alt="LocalStack Logo" 
-            height="45"
-            class="mr-2"
-          />
+          <img :src="logoImage" alt="LocalStack Logo" height="45" class="mr-2" />
           LocalStack Web
         </div>
       </v-toolbar-title>
-      
+
       <v-spacer></v-spacer>
-      
+
       <v-chip
         :color="connectionStatus === 'connected' ? 'success' : 'error'"
         :style="{ marginRight: '16px' }"
@@ -71,7 +45,6 @@
         </v-icon>
         {{ connectionStatus === 'connected' ? 'Conectado' : 'Desconectado' }}
       </v-chip>
-
 
       <v-tooltip :text="isDark ? 'Modo Claro' : 'Modo Escuro'" location="bottom">
         <template v-slot:activator="{ props }">
@@ -96,7 +69,6 @@
           </v-btn>
         </template>
       </v-tooltip>
-
     </v-app-bar>
 
     <v-main>
@@ -129,19 +101,10 @@
     </v-dialog>
 
     <!-- Global Snackbar -->
-    <v-snackbar
-      v-model="snackbar.show"
-      :color="snackbar.color"
-      :timeout="snackbar.timeout"
-    >
+    <v-snackbar v-model="snackbar.show" :color="snackbar.color" :timeout="snackbar.timeout">
       {{ snackbar.text }}
       <template v-slot:actions>
-        <v-btn
-          variant="text"
-          @click="snackbar.show = false"
-        >
-          Fechar
-        </v-btn>
+        <v-btn variant="text" @click="snackbar.show = false"> Fechar </v-btn>
       </template>
     </v-snackbar>
   </v-app>
@@ -168,6 +131,7 @@ const menuItems = [
   { title: 'DynamoDB Tables', icon: 'mdi-table', to: '/dynamodb' },
   { title: 'Kinesis Streams', icon: 'mdi-view-stream', to: '/kinesis' },
   { title: 'KMS Keys', icon: 'mdi-key', to: '/kms' },
+  { title: 'Secrets Manager', icon: 'mdi-lock', to: '/secrets-manager' },
   { title: 'Lambda Functions', icon: 'mdi-function', to: '/lambda' },
   { title: 'S3 Buckets', icon: 'mdi-folder-multiple', to: '/s3' },
   { title: 'SES Emails', icon: 'mdi-email-multiple', to: '/ses' },

@@ -121,13 +121,13 @@ awslocal kinesis put-record \
 # Create a simple Lambda function (if zip is available)
 if command -v zip >/dev/null; then
   echo "⚡ Creating sample Lambda function..."
-  
+
   # Create temporary directory for Lambda
   mkdir -p /tmp/lambda-sample
   cat > /tmp/lambda-sample/index.js << 'EOF'
 exports.handler = async (event) => {
   console.log('Event:', JSON.stringify(event, null, 2));
-  
+
   const response = {
     statusCode: 200,
     body: JSON.stringify({
@@ -136,15 +136,15 @@ exports.handler = async (event) => {
       timestamp: new Date().toISOString()
     })
   };
-  
+
   return response;
 };
 EOF
-  
+
   # Create zip file
   cd /tmp/lambda-sample
   zip function.zip index.js
-  
+
   # Create Lambda function
   awslocal lambda create-function \
     --function-name sample-function \
@@ -152,14 +152,25 @@ EOF
     --role arn:aws:iam::000000000000:role/lambda-role \
     --handler index.handler \
     --zip-file fileb://function.zip
-  
+
   # Clean up
   rm -rf /tmp/lambda-sample
-  
+
   echo "✅ Lambda function created successfully!"
 else
   echo "⚠️  Zip not available, skipping Lambda function creation"
 fi
+
+# Create Sample Secrets
+awslocal secretsmanager create-secret \
+    --name sample-secret \
+    --description "Sample Secret" \
+    --secret-string "Sample Data"
+
+awslocal secretsmanager create-secret \
+    --name sample-json-secret \
+    --description "Sample JSON Secret" \
+    --secret-string "{\"user\":\"my-user\",\"password\":\"my-password\"}"
 
 echo ""
 echo "🎉 Sample data setup complete!"
@@ -172,6 +183,7 @@ echo "   Lambda Functions: sample-function (if zip available)"
 echo "   S3 Buckets: sample-bucket-1, sample-bucket-2, images-bucket"
 echo "   SNS Topics: create-order-topic, order-created-topic"
 echo "   SQS Queues: sample-queue, orders-queue, notifications-queue"
+echo "   Secrets Manager: sample-secret, sample-json-secret"
 echo ""
 echo "🌐 Open the LocalStack Web interface at http://localhost:3000 to explore!"
 

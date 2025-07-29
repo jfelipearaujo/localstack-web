@@ -8,56 +8,62 @@ import SNSView from '@/views/SNSView.vue'
 import KMSView from '@/views/KMSView.vue'
 import AboutView from '@/views/AboutView.vue'
 import SESView from '@/views/SESView.vue'
+import SecretsManagerView from '@/views/SecretsManagerView.vue'
 
 export default [
   {
     path: '/',
     name: 'Dashboard',
-    component: Dashboard
+    component: Dashboard,
   },
   {
     path: '/s3',
     name: 'S3',
-    component: S3View
+    component: S3View,
   },
   {
     path: '/ses',
     name: 'SES',
-    component: SESView
+    component: SESView,
   },
   {
     path: '/sqs',
     name: 'SQS',
-    component: SQSView
+    component: SQSView,
   },
   {
     path: '/dynamodb',
     name: 'DynamoDB',
-    component: DynamoDBView
+    component: DynamoDBView,
   },
   {
     path: '/lambda',
     name: 'Lambda',
-    component: LambdaView
+    component: LambdaView,
   },
   {
     path: '/kinesis',
     name: 'Kinesis',
-    component: KinesisView
+    component: KinesisView,
   },
   {
     path: '/sns',
     name: 'SNS',
-    component: SNSView
+    component: SNSView,
   },
   {
     path: '/kms',
     name: 'KMS',
-    component: KMSView
+    component: KMSView,
+  },
+  {
+    path: '/secrets-manager',
+    name: 'Secrets Manager',
+    component: SecretsManagerView,
   },
   {
     path: '/about',
     name: 'About',
-    component: AboutView
-  }
+    component: AboutView,
+  },
 ]

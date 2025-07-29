@@ -1,13 +1,14 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { S3Client } from '@aws-sdk/client-s3'
-import { SESClient} from '@aws-sdk/client-ses'
+import { SESClient } from '@aws-sdk/client-ses'
 import { SNSClient } from '@aws-sdk/client-sns'
 import { SQSClient } from '@aws-sdk/client-sqs'
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
 import { LambdaClient } from '@aws-sdk/client-lambda'
 import { KinesisClient } from '@aws-sdk/client-kinesis'
 import { KMSClient } from '@aws-sdk/client-kms'
+import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager'
 
 export const useAppStore = defineStore('app', () => {
   const endpoint = ref(import.meta.env.VITE_LOCALSTACK_ENDPOINT || 'http://localhost:4566')
@@ -19,7 +20,7 @@ export const useAppStore = defineStore('app', () => {
     show: false,
     text: '',
     color: 'info',
-    timeout: 4000
+    timeout: 4000,
   })
 
   // AWS SDK v3 Configuration
@@ -27,11 +28,11 @@ export const useAppStore = defineStore('app', () => {
     region: region.value,
     credentials: {
       accessKeyId: accessKeyId.value,
-      secretAccessKey: secretAccessKey.value
+      secretAccessKey: secretAccessKey.value,
     },
     endpoint: endpoint.value,
     forcePathStyle: true,
-    tls: false
+    tls: false,
   }
 
   // Initialize AWS services
@@ -43,17 +44,18 @@ export const useAppStore = defineStore('app', () => {
   const lambda = ref(null)
   const kinesis = ref(null)
   const kms = ref(null)
+  const secretsManager = ref(null)
 
   const initializeServices = () => {
-    const config = { 
-      ...awsConfig, 
+    const config = {
+      ...awsConfig,
       endpoint: endpoint.value,
       credentials: {
         accessKeyId: accessKeyId.value,
-        secretAccessKey: secretAccessKey.value
-      }
+        secretAccessKey: secretAccessKey.value,
+      },
     }
-    
+
     s3.value = new S3Client(config)
     ses.value = new SESClient(config)
     sns.value = new SNSClient(config)
@@ -62,9 +64,10 @@ export const useAppStore = defineStore('app', () => {
     lambda.value = new LambdaClient(config)
     kinesis.value = new KinesisClient(config)
     kms.value = new KMSClient(config)
+    secretsManager.value = new SecretsManagerClient(config)
   }
 
-  const setEndpoint = (newEndpoint) => {
+  const setEndpoint = newEndpoint => {
     endpoint.value = newEndpoint
     localStorage.setItem('localstack-endpoint', newEndpoint)
     initializeServices()
@@ -97,11 +100,11 @@ export const useAppStore = defineStore('app', () => {
       show: true,
       text,
       color,
-      timeout
+      timeout,
     }
   }
 
-// Initialize services on store creation
+  // Initialize services on store creation
   initializeServices()
 
   return {
@@ -116,9 +119,10 @@ export const useAppStore = defineStore('app', () => {
     lambda,
     kinesis,
     kms,
+    secretsManager,
     setEndpoint,
     checkConnection,
     showSnackbar,
-    initializeServices
+    initializeServices,
   }
 })

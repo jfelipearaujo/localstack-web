@@ -99,6 +99,12 @@ Uma aplicação frontend moderna desenvolvida com **Vue.js 3** e **Vuetify 3** q
 - ✅ Configurar templates de email
 - ✅ Monitor de bounces e complaints
 
+### 🔒 Secrets Manager
+- ✅ Listar todos os secrets
+- ✅ Criar novos secrets
+- ✅ Deletar os secrets
+- ✅ Visualizar o conteúdo dos secrets
+
 ### 🎨 Interface do Usuário
 - ✅ Design moderno e responsivo com Material Design 3
 - ✅ Tema claro/escuro com persistência
@@ -125,7 +131,7 @@ Uma aplicação frontend moderna desenvolvida com **Vue.js 3** e **Vuetify 3** q
 
 ## 📋 Pré-requisitos
 
-- Node.js 18+ 
+- Node.js 18+
 - npm ou yarn
 - Docker e Docker Compose (para execução com containers)
 
