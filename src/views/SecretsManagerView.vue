@@ -171,7 +171,7 @@
               </v-btn>
             </div>
             <v-btn variant="outlined" @click="addKeyValuePair" size="small" class="mt-2">
-              <v-icon left>mdi-plus</v-icon> Adicionar chave-valor
+              <v-icon left>mdi-plus</v-icon> Adicionar
             </v-btn>
           </div>
         </v-card-text>
@@ -244,7 +244,7 @@
               </v-btn>
             </div>
             <v-btn variant="outlined" @click="addEditKeyValuePair" size="small" class="mt-2">
-              <v-icon left>mdi-plus</v-icon> Adicionar chave-valor
+              <v-icon left>mdi-plus</v-icon> Adicionar
             </v-btn>
           </div>
         </v-card-text>
@@ -270,12 +270,28 @@
                   <p><strong>Nome:</strong> {{ selectedSecret.Name }}</p>
                   <p><strong>Descrição:</strong> {{ selectedSecret.Description }}</p>
                   <p><strong>ARN:</strong> {{ selectedSecret.ARN }}</p>
-                  <p><strong>Versões:</strong> {{ selectedSecret.Versions }}</p>
 
-                  <p class="mt-4"><strong>Conteúdo do secret:</strong></p>
+                  <p class="mt-3"><strong>Versões disponíveis:</strong></p>
+                  <v-select
+                    v-if="selectedSecret.Versions"
+                    :model-value="selectedVersionId"
+                    @update:model-value="onSelectVersion"
+                    :items="
+                      selectedSecret.Versions.map(v => ({
+                        title: `${v.versionId} - Criado em ${formatDate(v.createdDate)}`,
+                        value: v.versionId,
+                      }))
+                    "
+                    dense
+                    outlined
+                  />
+
+                  <p class="mt-3"><strong>Conteúdo:</strong></p>
 
                   <v-radio-group
-                    v-if="isSecretJson"
+                    v-if="
+                      selectedVersionContent && selectedVersionContent.contentType === 'keyValue'
+                    "
                     v-model="secretViewMode"
                     row
                     class="mb-2"
@@ -286,17 +302,39 @@
                   </v-radio-group>
 
                   <!-- Key-Value View -->
-                  <div v-if="secretViewMode === 'keyValue' && isSecretJson">
-                    <div v-for="(value, key) in parsedSecretObject" :key="key" class="d-flex mb-2">
-                      <v-text-field :model-value="key" label="Chave" readonly class="mr-2" />
-                      <v-text-field :model-value="value" label="Valor" readonly />
+                  <div
+                    v-if="
+                      secretViewMode === 'keyValue' &&
+                      selectedVersionContent?.contentType === 'keyValue'
+                    "
+                  >
+                    <div
+                      v-for="(item, index) in selectedVersionContent.content"
+                      :key="index"
+                      class="d-flex mb-2"
+                    >
+                      <v-text-field :model-value="item.key" label="Chave" readonly class="mr-2" />
+                      <v-text-field :model-value="item.value" label="Valor" readonly />
                     </div>
                   </div>
 
                   <!-- Plaintext View -->
-                  <div v-if="secretViewMode === 'plaintext' || !isSecretJson">
+                  <div
+                    v-if="
+                      secretViewMode === 'plaintext' ||
+                      selectedVersionContent?.contentType === 'plaintext'
+                    "
+                  >
                     <textarea cols="115" rows="6" readonly>{{
-                      selectedSecret.SecretString
+                      typeof selectedVersionContent?.content === 'string'
+                        ? selectedVersionContent.content
+                        : JSON.stringify(
+                            Object.fromEntries(
+                              selectedVersionContent?.content.map(({ key, value }) => [key, value])
+                            ),
+                            null,
+                            2
+                          )
                     }}</textarea>
                   </div>
                 </v-card-text>
@@ -336,12 +374,13 @@ import { storeToRefs } from 'pinia'
 import TitleNameWithTooltip from '@/components/TitleNameWithTooltip.vue'
 import {
   ListSecretsCommand,
+  ListSecretVersionIdsCommand,
   CreateSecretCommand,
   GetSecretValueCommand,
-  DescribeSecretCommand,
   DeleteSecretCommand,
   UpdateSecretCommand,
 } from '@aws-sdk/client-secrets-manager'
+import { formatDate } from '../utils/formatDate.js'
 
 const appStore = useAppStore()
 const { secretsManager } = storeToRefs(appStore)
@@ -359,6 +398,8 @@ const isSecretJson = ref(false)
 const parsedSecretObject = ref({})
 const editMode = ref('plaintext') // 'plaintext' ou 'keyValue'
 const editKeyValuePairs = ref([{ key: '', value: '' }])
+const selectedVersionId = ref(null)
+const selectedVersionContent = ref(null)
 
 // Dialog states
 const createSecretDialog = ref(false)
@@ -567,8 +608,8 @@ const updateSecret = async () => {
 
 const openSecret = async secret => {
   try {
-    const described = await secretsManager.value.send(
-      new DescribeSecretCommand({
+    const versionsResponse = await secretsManager.value.send(
+      new ListSecretVersionIdsCommand({
         SecretId: secret.ARN,
       })
     )
@@ -579,12 +620,28 @@ const openSecret = async secret => {
       })
     )
 
+    const versions = versionsResponse.Versions.map(version => ({
+      versionId: version.VersionId,
+      createdDate: version.CreatedDate,
+      lastAccessedDate: version.LastAccessedDate,
+    }))
+
+    let latestVersion = {}
+    if (versions.length > 0) {
+      const latest = versions[0]
+      latestVersion = await loadSecretVersionContent(secret.ARN, latest.versionId)
+    }
+
+    selectedVersionId.value = versions[0]?.versionId || null
+    selectedVersionContent.value = latestVersion
+
     selectedSecret.value = {
       Name: secret.Name,
       Description: secret.Description,
       ARN: secret.ARN,
       SecretString: secretContent.SecretString,
-      Versions: described.VersionIdsToStages,
+      Versions: versions,
+      LatestVersion: latestVersion,
     }
 
     // Check if SecretString is a valid key-value JSON
@@ -633,6 +690,53 @@ const deleteSecret = async () => {
     appStore.showSnackbar('Erro ao excluir secret:' + error, 'error')
   } finally {
     deleting.value = false
+  }
+}
+
+const loadSecretVersionContent = async (secretId, versionId) => {
+  try {
+    const result = await secretsManager.value.send(
+      new GetSecretValueCommand({
+        SecretId: secretId,
+        VersionId: versionId,
+      })
+    )
+
+    try {
+      const json = JSON.parse(result.SecretString)
+      if (typeof json === 'object' && !Array.isArray(json) && json !== null) {
+        const contentType = 'keyValue'
+        const content = Object.entries(json).map(([key, value]) => ({
+          key,
+          value,
+        }))
+        return {
+          content: content,
+          contentType: contentType,
+        }
+      }
+    } catch {
+      return {
+        content: result.SecretString,
+        contentType: 'plaintext',
+      }
+    }
+  } catch (error) {
+    appStore.showSnackbar('Erro ao carregar conteúdo da versão', 'error')
+    return ''
+  }
+}
+
+const onSelectVersion = async newVersionId => {
+  selectedVersionId.value = newVersionId
+  if (newVersionId && selectedSecret.value?.ARN) {
+    selectedVersionContent.value = await loadSecretVersionContent(
+      selectedSecret.value.ARN,
+      newVersionId
+    )
+    // Atualiza o modo de visualização com base no novo tipo de conteúdo
+    secretViewMode.value =
+      selectedVersionContent.value.contentType === 'keyValue' ? 'keyValue' : 'plaintext'
   }
 }
 

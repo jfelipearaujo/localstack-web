@@ -105,7 +105,8 @@ Uma aplicação frontend moderna desenvolvida com **Vue.js 3** e **Vuetify 3** q
 - ✅ Visualizar o conteúdo dos secrets
 - ✅ Atualizar o conteúdo dos secrets
 - ✅ Deletar os secrets
-- ✅ Suporte a texto puro (plaintext) e chave-valor (JSON)
+- ✅ Suporte à texto puro (plaintext) e chave-valor (JSON)
+- ✅ Suporte à visualização de múltiplas versões
 
 ### 🎨 Interface do Usuário
 - ✅ Design moderno e responsivo com Material Design 3
