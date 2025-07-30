@@ -66,7 +66,9 @@
               <v-icon start>mdi-text-box</v-icon>
               Descrição
             </v-chip>
-            <p class="text-caption text-grey-darken-1">{{ secret.Description || "Sem descrição" }}</p>
+            <p class="text-caption text-grey-darken-1">
+              {{ secret.Description || 'Sem descrição' }}
+            </p>
           </v-card-text>
           <v-card-text>
             <v-chip size="small" class="mb-2">
@@ -101,7 +103,7 @@
     </v-row>
 
     <!-- Create Secret Dialog -->
-    <v-dialog v-model="createSecretDialog" max-width="500">
+    <v-dialog v-model="createSecretDialog" max-width="600">
       <v-card>
         <v-card-title>
           <span class="text-h5">Criar Novo Secret</span>
@@ -114,22 +116,58 @@
             variant="outlined"
             :rules="[rules.required]"
             @keyup.enter="createSecret"
-          ></v-text-field>
+          />
           <v-text-field
             v-model="newSecretDescription"
             label="Descrição do Secret"
             placeholder="my-secret-description"
             variant="outlined"
             @keyup.enter="createSecret"
-          ></v-text-field>
+          />
+
+          <v-radio-group v-model="inputMode" row label="Tipo de Conteúdo">
+            <v-radio label="Texto Puro" value="plaintext" />
+            <v-radio label="Chave-Valor (JSON)" value="keyValue" />
+          </v-radio-group>
+
+          <!-- PLAINTEXT INPUT -->
           <v-textarea
+            v-if="inputMode === 'plaintext'"
             v-model="newSecretString"
-            label="Conteudo do secret"
-            placeholder='{&#10  "user": "user123",&#10  "password": "myPass123"&#10}'
+            label="Conteúdo do secret (texto puro)"
+            placeholder='{ "user": "admin", "password": "123" }'
             variant="outlined"
             rows="8"
             :rules="[rules.required]"
-          ></v-textarea>
+          />
+
+          <!-- KEY-VALUE INPUT -->
+          <div v-if="inputMode === 'keyValue'">
+            <div
+              v-for="(pair, index) in keyValuePairs"
+              :key="index"
+              class="d-flex align-center mb-2"
+            >
+              <v-text-field
+                v-model="pair.key"
+                label="Chave"
+                class="mr-2"
+                :rules="[rules.required]"
+              />
+              <v-text-field
+                v-model="pair.value"
+                label="Valor"
+                class="mr-2"
+                :rules="[rules.required]"
+              />
+              <v-btn icon @click="removeKeyValuePair(index)" v-if="keyValuePairs.length > 1">
+                <v-icon color="error">mdi-delete</v-icon>
+              </v-btn>
+            </div>
+            <v-btn variant="outlined" @click="addKeyValuePair" size="small" class="mt-2">
+              <v-icon left>mdi-plus</v-icon> Adicionar chave-valor
+            </v-btn>
+          </div>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
@@ -163,11 +201,9 @@
                   <p><strong>Versões:</strong> {{ selectedSecret.Versions }}</p>
 
                   <p class="mt-4"><strong>Conteúdo do secret:</strong></p>
-                  <textarea
-                    cols="115"
-                    rows="2"
-                    readonly
-                  >{{ selectedSecret.SecretString }}</textarea>
+                  <textarea cols="115" rows="2" readonly>{{
+                    selectedSecret.SecretString
+                  }}</textarea>
                 </v-card-text>
               </v-card>
             </v-col>
@@ -220,6 +256,8 @@ const searchQuery = ref('')
 const loading = ref(false)
 const creating = ref(false)
 const deleting = ref(false)
+const inputMode = ref('plaintext') // 'plaintext' ou 'keyValue'
+const keyValuePairs = ref([{ key: '', value: '' }])
 
 // Dialog states
 const createSecretDialog = ref(false)
@@ -236,6 +274,15 @@ const selectedSecret = ref(null)
 // Validation rules
 const rules = {
   required: value => !!value || 'Campo obrigatório',
+}
+
+// Add secret buttons
+const addKeyValuePair = () => {
+  keyValuePairs.value.push({ key: '', value: '' })
+}
+
+const removeKeyValuePair = index => {
+  keyValuePairs.value.splice(index, 1)
 }
 
 // Computed properties
@@ -262,15 +309,41 @@ const loadSecrets = async () => {
 }
 
 const createSecret = async () => {
-  if (!newSecretName.value) return
+  let secretString = ''
+
+  switch (inputMode.value) {
+    case 'plaintext':
+      if (!newSecretString.value) {
+        appStore.showSnackbar('O conteúdo do secret é obrigatório', 'error')
+        return
+      }
+      secretString = newSecretString.value
+      break
+    case 'keyValue':
+      const valid = keyValuePairs.value.every(p => p.key && p.value)
+      if (!valid) {
+        appStore.showSnackbar('Todos os campos de chave e valor são obrigatórios', 'error')
+        return
+      }
+
+      const jsonObj = {}
+      keyValuePairs.value.forEach(p => {
+        jsonObj[p.key] = p.value
+      })
+      secretString = JSON.stringify(jsonObj, null, 2)
+      break
+    default:
+      appStore.showSnackbar('Modo de entrada invalido: ' + inputMode.value, 'error')
+      return
+  }
 
   try {
     creating.value = true
-    const response = await secretsManager.value.send(
+    await secretsManager.value.send(
       new CreateSecretCommand({
         Name: newSecretName.value,
         Description: newSecretDescription.value,
-        SecretString: newSecretString.value,
+        SecretString: secretString,
       })
     )
 
@@ -279,6 +352,8 @@ const createSecret = async () => {
     newSecretName.value = ''
     newSecretDescription.value = ''
     newSecretString.value = ''
+    keyValuePairs.value = [{ key: '', value: '' }]
+    inputMode.value = 'plaintext'
     await loadSecrets()
   } catch (error) {
     console.error('Erro ao criar secret:', error)
@@ -291,9 +366,10 @@ const createSecret = async () => {
 const openSecret = async secret => {
   try {
     const described = await secretsManager.value.send(
-     new DescribeSecretCommand({
-       SecretId: secret.ARN,
-     }))
+      new DescribeSecretCommand({
+        SecretId: secret.ARN,
+      })
+    )
 
     const secretContent = await secretsManager.value.send(
       new GetSecretValueCommand({
