@@ -52,6 +52,12 @@
                     Detalhes
                   </v-list-item-title>
                 </v-list-item>
+                <v-list-item @click="startEditSecret(secret)">
+                  <v-list-item-title>
+                    <v-icon class="mr-2">mdi-pencil</v-icon>
+                    Editar
+                  </v-list-item-title>
+                </v-list-item>
                 <v-list-item @click="confirmDeleteSecret(secret)">
                   <v-list-item-title class="text-error">
                     <v-icon class="mr-2">mdi-delete</v-icon>
@@ -184,6 +190,72 @@
       </v-card>
     </v-dialog>
 
+    <!-- Edit Secret Dialog -->
+    <v-dialog v-model="editSecretDialog" max-width="600">
+      <v-card v-if="editingSecret">
+        <v-card-title>
+          <span class="text-h5">Editar Secret</span>
+        </v-card-title>
+        <v-card-text>
+          <v-text-field
+            v-model="editingSecret.Description"
+            label="Descrição do Secret"
+            variant="outlined"
+          />
+
+          <v-radio-group v-model="editMode" row label="Tipo de Conteúdo">
+            <v-radio label="Texto Puro" value="plaintext" />
+            <v-radio label="Chave-Valor (JSON)" value="keyValue" />
+          </v-radio-group>
+
+          <v-textarea
+            v-if="editMode === 'plaintext'"
+            v-model="editingSecret.SecretString"
+            label="Conteúdo do secret (texto puro)"
+            variant="outlined"
+            rows="8"
+            :rules="[rules.required]"
+          />
+
+          <div v-if="editMode === 'keyValue'">
+            <div
+              v-for="(pair, index) in editKeyValuePairs"
+              :key="index"
+              class="d-flex align-center mb-2"
+            >
+              <v-text-field
+                v-model="pair.key"
+                label="Chave"
+                class="mr-2"
+                :rules="[rules.required]"
+              />
+              <v-text-field
+                v-model="pair.value"
+                label="Valor"
+                class="mr-2"
+                :rules="[rules.required]"
+              />
+              <v-btn
+                icon
+                @click="removeEditKeyValuePair(index)"
+                v-if="editKeyValuePairs.length > 1"
+              >
+                <v-icon color="error">mdi-delete</v-icon>
+              </v-btn>
+            </div>
+            <v-btn variant="outlined" @click="addEditKeyValuePair" size="small" class="mt-2">
+              <v-icon left>mdi-plus</v-icon> Adicionar chave-valor
+            </v-btn>
+          </div>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn text @click="editSecretDialog = false">Cancelar</v-btn>
+          <v-btn color="primary" @click="updateSecret" :loading="updating">Salvar</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Secret Details Dialog -->
     <v-dialog v-model="secretDetailsDialog" max-width="800">
       <v-card v-if="selectedSecret">
@@ -268,6 +340,7 @@ import {
   GetSecretValueCommand,
   DescribeSecretCommand,
   DeleteSecretCommand,
+  UpdateSecretCommand,
 } from '@aws-sdk/client-secrets-manager'
 
 const appStore = useAppStore()
@@ -284,11 +357,16 @@ const keyValuePairs = ref([{ key: '', value: '' }])
 const secretViewMode = ref('plaintext') // 'plaintext' ou 'keyValue'
 const isSecretJson = ref(false)
 const parsedSecretObject = ref({})
+const editMode = ref('plaintext') // 'plaintext' ou 'keyValue'
+const editKeyValuePairs = ref([{ key: '', value: '' }])
 
 // Dialog states
 const createSecretDialog = ref(false)
 const secretDetailsDialog = ref(false)
 const deleteDialog = ref(false)
+const editSecretDialog = ref(false)
+const editingSecret = ref(null)
+const updating = ref(false)
 
 // Form data
 const newSecretName = ref('')
@@ -386,6 +464,104 @@ const createSecret = async () => {
     appStore.showSnackbar('Erro ao criar secret', 'error')
   } finally {
     creating.value = false
+  }
+}
+
+const startEditSecret = async secret => {
+  try {
+    const secretContent = await secretsManager.value.send(
+      new GetSecretValueCommand({
+        SecretId: secret.ARN,
+      })
+    )
+
+    const secretString = secretContent.SecretString
+    editingSecret.value = {
+      ARN: secret.ARN,
+      Name: secret.Name,
+      Description: secret.Description || '',
+      SecretString: secretString,
+    }
+
+    try {
+      const parsed = JSON.parse(secretString)
+      if (typeof parsed === 'object' && !Array.isArray(parsed) && parsed !== null) {
+        editMode.value = 'keyValue'
+        editKeyValuePairs.value = Object.entries(parsed).map(([key, value]) => ({
+          key,
+          value,
+        }))
+      } else {
+        appStore.showSnackbar('Erro ao parsear secret para edição', 'error')
+        return
+      }
+    } catch {
+      editMode.value = 'plaintext'
+      editKeyValuePairs.value = [{ key: '', value: '' }]
+    }
+
+    editSecretDialog.value = true
+  } catch (error) {
+    appStore.showSnackbar('Erro ao carregar secret para edição', 'error')
+    console.error(error)
+  }
+}
+
+const addEditKeyValuePair = () => {
+  editKeyValuePairs.value.push({ key: '', value: '' })
+}
+
+const removeEditKeyValuePair = index => {
+  editKeyValuePairs.value.splice(index, 1)
+}
+
+const updateSecret = async () => {
+  let secretString = ''
+
+  switch (editMode.value) {
+    case 'plaintext':
+      if (!editingSecret.value.SecretString) {
+        appStore.showSnackbar('Conteúdo do secret é obrigatório', 'error')
+        return
+      }
+      secretString = editingSecret.value.SecretString
+      break
+    case 'keyValue':
+      const valid = editKeyValuePairs.value.every(p => p.key && p.value)
+      if (!valid) {
+        appStore.showSnackbar('Todos os campos de chave-valor são obrigatórios', 'error')
+        return
+      }
+      const json = {}
+      editKeyValuePairs.value.forEach(p => {
+        json[p.key] = p.value
+      })
+      secretString = JSON.stringify(json, null, 2)
+      break
+    default:
+      appStore.showSnackbar('Modo de entrada invalido: ' + inputMode.value, 'error')
+      return
+  }
+
+  try {
+    updating.value = true
+    await secretsManager.value.send(
+      new UpdateSecretCommand({
+        SecretId: editingSecret.value.ARN,
+        Description: editingSecret.value.Description,
+        SecretString: secretString,
+      })
+    )
+
+    appStore.showSnackbar('Secret atualizado com sucesso!', 'success')
+    editSecretDialog.value = false
+    editingSecret.value = null
+    await loadSecrets()
+  } catch (error) {
+    appStore.showSnackbar('Erro ao atualizar secret', 'error')
+    console.error('Erro ao atualizar secret:', error)
+  } finally {
+    updating.value = false
   }
 }
 

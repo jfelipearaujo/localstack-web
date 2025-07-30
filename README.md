@@ -101,9 +101,11 @@ Uma aplicação frontend moderna desenvolvida com **Vue.js 3** e **Vuetify 3** q
 
 ### 🔒 Secrets Manager
 - ✅ Listar todos os secrets
-- ✅ Criar novos secrets via texto puro (plaintext) ou chave-valor (JSON)
+- ✅ Criar novos secrets
+- ✅ Visualizar o conteúdo dos secrets
+- ✅ Atualizar o conteúdo dos secrets
 - ✅ Deletar os secrets
-- ✅ Visualizar o conteúdo dos secrets via texto puro (plaintext) ou chave-valor (JSON)
+- ✅ Suporte a texto puro (plaintext) e chave-valor (JSON)
 
 ### 🎨 Interface do Usuário
 - ✅ Design moderno e responsivo com Material Design 3
