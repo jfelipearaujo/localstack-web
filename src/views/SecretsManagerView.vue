@@ -201,9 +201,32 @@
                   <p><strong>Versões:</strong> {{ selectedSecret.Versions }}</p>
 
                   <p class="mt-4"><strong>Conteúdo do secret:</strong></p>
-                  <textarea cols="115" rows="2" readonly>{{
-                    selectedSecret.SecretString
-                  }}</textarea>
+
+                  <v-radio-group
+                    v-if="isSecretJson"
+                    v-model="secretViewMode"
+                    row
+                    class="mb-2"
+                    density="compact"
+                  >
+                    <v-radio label="Chave-Valor" value="keyValue" />
+                    <v-radio label="Texto Puro" value="plaintext" />
+                  </v-radio-group>
+
+                  <!-- Key-Value View -->
+                  <div v-if="secretViewMode === 'keyValue' && isSecretJson">
+                    <div v-for="(value, key) in parsedSecretObject" :key="key" class="d-flex mb-2">
+                      <v-text-field :model-value="key" label="Chave" readonly class="mr-2" />
+                      <v-text-field :model-value="value" label="Valor" readonly />
+                    </div>
+                  </div>
+
+                  <!-- Plaintext View -->
+                  <div v-if="secretViewMode === 'plaintext' || !isSecretJson">
+                    <textarea cols="115" rows="6" readonly>{{
+                      selectedSecret.SecretString
+                    }}</textarea>
+                  </div>
                 </v-card-text>
               </v-card>
             </v-col>
@@ -258,6 +281,9 @@ const creating = ref(false)
 const deleting = ref(false)
 const inputMode = ref('plaintext') // 'plaintext' ou 'keyValue'
 const keyValuePairs = ref([{ key: '', value: '' }])
+const secretViewMode = ref('plaintext') // 'plaintext' ou 'keyValue'
+const isSecretJson = ref(false)
+const parsedSecretObject = ref({})
 
 // Dialog states
 const createSecretDialog = ref(false)
@@ -383,6 +409,22 @@ const openSecret = async secret => {
       ARN: secret.ARN,
       SecretString: secretContent.SecretString,
       Versions: described.VersionIdsToStages,
+    }
+
+    // Check if SecretString is a valid key-value JSON
+    try {
+      const parsed = JSON.parse(secretContent.SecretString)
+      if (typeof parsed === 'object' && !Array.isArray(parsed) && parsed !== null) {
+        isSecretJson.value = true
+        parsedSecretObject.value = parsed
+        secretViewMode.value = 'keyValue'
+      } else {
+        throw new Error()
+      }
+    } catch {
+      isSecretJson.value = false
+      parsedSecretObject.value = {}
+      secretViewMode.value = 'plaintext'
     }
 
     secretDetailsDialog.value = true
